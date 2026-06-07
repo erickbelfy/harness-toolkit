@@ -27,7 +27,7 @@ gen_agentsmd() {
 
 # Rules, ordered by ascending priority (default 50), each as a prose section.
 _agentsmd_rules() {
-  local f pr line
+  local f pr
   # Build "priority<TAB>file" then sort numerically, stable.
   local rows; rows="$(
     while IFS= read -r f; do

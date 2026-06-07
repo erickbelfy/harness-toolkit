@@ -258,7 +258,7 @@ cmd_validate() {
           ;;
         hooks)
           [ -z "$(fm_get "$f" event)" ] && validate_err "$f: missing 'event'"
-          local script; script="$(fm_get "$f" command)"
+          [ -z "$(fm_get "$f" command)" ] && validate_warn "$f: hook has no command"
           ;;
         mcp)
           [ -z "$(fm_get "$f" name)" ] && validate_err "$f: missing 'name'"
