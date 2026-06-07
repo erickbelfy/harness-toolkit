@@ -1,0 +1,380 @@
+#!/usr/bin/env bash
+# harness — author AI-agent config once, generate per-agent flavors.
+# Targets: Claude Code, Cursor, Gastown, generic AGENTS.md.
+set -euo pipefail
+
+# --- Locate the toolkit install, following symlinks (install.sh symlinks us) -
+_resolve_self() {
+  local src="${BASH_SOURCE[0]}" dir
+  while [ -h "$src" ]; do
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"; [ "${src#/}" = "$src" ] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")/.." && pwd
+}
+HARNESS_ROOT="$(_resolve_self)"
+export HARNESS_ROOT
+
+# shellcheck source=lib/common.sh
+. "$HARNESS_ROOT/lib/common.sh"
+# shellcheck source=lib/frontmatter.sh
+. "$HARNESS_ROOT/lib/frontmatter.sh"
+# shellcheck source=lib/manifest.sh
+. "$HARNESS_ROOT/lib/manifest.sh"
+# shellcheck source=lib/emit.sh
+. "$HARNESS_ROOT/lib/emit.sh"
+# shellcheck source=lib/json.sh
+. "$HARNESS_ROOT/lib/json.sh"
+
+VERSION="0.1.0"
+CATEGORIES="rules agents commands skills hooks mcp memory"
+ALL_TARGETS="agentsmd claude cursor gastown"
+
+usage() {
+  cat <<'EOF'
+harness — generate per-agent config from one canonical source.
+
+Usage: harness <command> [options]
+
+Commands:
+  init                 Scaffold a canonical harness/ tree + harness.toml here
+  build                Generate all enabled targets (alias: sync)
+  sync                 Alias for build
+  diff                 Show what build would change (dry run)
+  validate             Check canonical sources for errors (non-zero on failure)
+  list [category]      List canonical artifacts and their target mappings
+  add <type> <name>    Scaffold a new artifact from a template
+  doctor               Report optional-dependency availability
+  help                 Show this help
+  version              Print version
+
+Options:
+  --dir <path>         Output directory (default: current directory)
+  --source <path>      Canonical source dir (default: ./harness or bundled)
+  --manifest <path>    Manifest file (default: alongside source)
+  --target <name>      Limit to one target (agentsmd|claude|cursor|gastown)
+  --dry-run            Do not write files; report intended changes
+  --verbose            Verbose logging
+  --quiet              Suppress informational output
+EOF
+}
+
+# --- Global option parsing -------------------------------------------------
+OUT_DIR="$PWD"
+SRC_DIR=""
+MANIFEST=""
+ONLY_TARGET=""
+CMD=""
+ARGS=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dir)      OUT_DIR="$2"; shift 2 ;;
+    --source)   SRC_DIR="$2"; shift 2 ;;
+    --manifest) MANIFEST="$2"; shift 2 ;;
+    --target)   ONLY_TARGET="$2"; shift 2 ;;
+    --dry-run)  HARNESS_DRY_RUN=1; shift ;;
+    --verbose|-v) HARNESS_VERBOSE=1; shift ;;
+    --quiet|-q) HARNESS_QUIET=1; shift ;;
+    -h|--help)  usage; exit 0 ;;
+    --) shift; while [ $# -gt 0 ]; do ARGS+=("$1"); shift; done ;;
+    -*) die "unknown option: $1" ;;
+    *)  if [ -z "$CMD" ]; then CMD="$1"; else ARGS+=("$1"); fi; shift ;;
+  esac
+done
+
+# --- Resolve canonical source / manifest / output --------------------------
+resolve_paths() {
+  if [ -z "$SRC_DIR" ]; then
+    if [ -d "$PWD/harness" ] && [ "$PWD" != "$HARNESS_ROOT" ]; then
+      SRC_DIR="$PWD/harness"
+    else
+      SRC_DIR="$HARNESS_ROOT/harness"
+    fi
+  fi
+  if [ -z "$MANIFEST" ]; then
+    local cand; cand="$(dirname "$SRC_DIR")/harness.toml"
+    if [ -f "$cand" ]; then MANIFEST="$cand"; else MANIFEST="$HARNESS_ROOT/harness.toml"; fi
+  fi
+  debug "source:   $SRC_DIR"
+  debug "manifest: $MANIFEST"
+  debug "out:      $OUT_DIR"
+}
+
+# enabled_targets — targets that are enabled in the manifest (honoring --target).
+enabled_targets() {
+  local t
+  for t in $ALL_TARGETS; do
+    [ -n "$ONLY_TARGET" ] && [ "$t" != "$ONLY_TARGET" ] && continue
+    if manifest_target_enabled "$MANIFEST" "$t"; then echo "$t"; fi
+  done
+}
+
+# targets_for <category> — resolved target list for a canonical category.
+targets_for() { manifest_mapping "$MANIFEST" "$1"; }
+
+# artifact_targets <file> <category> — per-artifact targets: override or mapping.
+artifact_targets() {
+  if fm_has "$1" targets; then fm_get_list "$1" targets; else targets_for "$2"; fi
+}
+
+# target_selected <file> <category> <target> — is this artifact bound to <target>?
+target_selected() { artifact_targets "$1" "$2" | grep -qx "$3"; }
+
+# skill_file <name> — path to a skill's SKILL.md (searches harness/skills/**).
+skill_file() { find "$SRC_DIR/skills" -path "*/$1/SKILL.md" -print 2>/dev/null | LC_ALL=C sort | head -1; }
+
+# skill_desc <name> — the skill's description (empty if not found).
+skill_desc() { local sf; sf="$(skill_file "$1")"; [ -n "$sf" ] && fm_get "$sf" description; }
+
+# agent_skills_section <agent_file> — generate a "## Skills" block listing each
+# referenced skill with its description, so personas don't restate skill content.
+# Prints nothing if the agent declares no skills.
+agent_skills_section() {
+  local f="$1" sk desc any=0
+  fm_has "$f" skills || return 0
+  while IFS= read -r sk; do
+    [ -z "$sk" ] && continue
+    if [ "$any" = 0 ]; then
+      printf '\n## Skills\n\n'
+      printf 'Load and follow these skills for this role (loaded on demand):\n\n'
+      any=1
+    fi
+    desc="$(skill_desc "$sk")"
+    if [ -n "$desc" ]; then printf -- '- **%s** — %s\n' "$sk" "$desc"
+    else printf -- '- **%s**\n' "$sk"; fi
+  done < <(fm_get_list "$f" skills)
+}
+
+# humanize <slug> — "code-reviewer" -> "Code Reviewer" (for headings).
+humanize() {
+  printf '%s' "$1" | awk '{
+    n=split($0,a,"-"); out=""
+    for(i=1;i<=n;i++){ w=a[i]; out=out (i>1?" ":"") toupper(substr(w,1,1)) substr(w,2) }
+    print out
+  }'
+}
+
+# list_artifacts <category> — files for a category (skills are dirs w/ SKILL.md).
+list_artifacts() {
+  local cat="$1" base="$SRC_DIR/$1"
+  [ -d "$base" ] || return 0
+  if [ "$cat" = skills ]; then
+    find "$base" -name SKILL.md -type f | LC_ALL=C sort
+  else
+    find "$base" -maxdepth 1 -name '*.md' -type f | LC_ALL=C sort
+  fi
+}
+
+# --- Commands --------------------------------------------------------------
+
+cmd_doctor() {
+  resolve_paths
+  info "harness $VERSION"
+  info "root:   $HARNESS_ROOT"
+  info "source: $SRC_DIR"
+  info ""
+  info "optional dependencies:"
+  local d
+  for d in jq yq dasel bd skills-ref shellcheck bats; do
+    if has_cmd "$d"; then info "  [x] $d"; else info "  [ ] $d (fallback active)"; fi
+  done
+  info ""
+  if has_cmd jq; then info "JSON merge: jq (safe in-place merge)"; else
+    info "JSON merge: awk writer (clean generate); fragment+warn on pre-existing files"; fi
+}
+
+cmd_list() {
+  resolve_paths
+  local filter="${ARGS[0]:-}" cat f n
+  for cat in $CATEGORIES; do
+    [ -n "$filter" ] && [ "$cat" != "$filter" ] && continue
+    n=0
+    while IFS= read -r f; do n=$((n+1)); done < <(list_artifacts "$cat")
+    [ "$n" = 0 ] && continue
+    printf '%s (%d)  ->  %s\n' "$cat" "$n" "$(targets_for "$cat" | paste -sd, -)" >&2
+    while IFS= read -r f; do
+      local id; id="$(artifact_id "$f" "$cat")"
+      printf '    %-28s %s\n' "$id" "$(artifact_targets "$f" "$cat" | paste -sd, -)" >&2
+    done < <(list_artifacts "$cat")
+  done
+}
+
+# artifact_id <file> <category> — canonical id used for output filenames.
+artifact_id() {
+  local f="$1" cat="$2" id
+  case "$cat" in
+    skills) basename "$(dirname "$f")" ;;
+    rules)  id="$(fm_get "$f" id)"; echo "${id:-$(basename "$f" .md)}" ;;
+    *)      id="$(fm_get "$f" name)"; [ -z "$id" ] && id="$(fm_get "$f" id)"
+            echo "${id:-$(basename "$f" .md)}" ;;
+  esac
+}
+
+cmd_validate() {
+  resolve_paths
+  local errors=0 warnings=0 cat f id
+
+  validate_err()  { err "$1"; errors=$((errors+1)); }
+  validate_warn() { warn "$1"; warnings=$((warnings+1)); }
+
+  # Collect available skill names (for dangling-reference checks on agents).
+  local skill_names=" "
+  while IFS= read -r sf; do skill_names="$skill_names$(basename "$(dirname "$sf")") "; done \
+    < <(list_artifacts skills)
+
+  for cat in $CATEGORIES; do
+    # duplicate-id detection per category
+    local seen=""
+    while IFS= read -r f; do
+      id="$(artifact_id "$f" "$cat")"
+      [ -z "$id" ] && { validate_err "$f: cannot determine id/name"; continue; }
+      case " $seen " in *" $id "*) validate_err "$cat: duplicate id '$id'";; esac
+      seen="$seen $id"
+
+      # frontmatter must parse
+      if ! fm_raw "$f" >/dev/null 2>&1; then
+        validate_err "$f: missing or malformed frontmatter (--- fence)"
+        continue
+      fi
+
+      case "$cat" in
+        rules)
+          [ -z "$(fm_get "$f" description)" ] && validate_warn "$f: rule has no description"
+          ;;
+        agents|commands)
+          [ -z "$(fm_get "$f" name)" ] && validate_err "$f: missing 'name'"
+          [ -z "$(fm_get "$f" description)" ] && validate_err "$f: missing 'description'"
+          if [ "$cat" = agents ] && fm_has "$f" skills; then
+            local sk
+            while IFS= read -r sk; do
+              [ -z "$sk" ] && continue
+              case "$skill_names" in *" $sk "*) ;; *) validate_err "$f: references unknown skill '$sk'";; esac
+            done < <(fm_get_list "$f" skills)
+          fi
+          ;;
+        skills)
+          validate_skill "$f" || true
+          ;;
+        hooks)
+          [ -z "$(fm_get "$f" event)" ] && validate_err "$f: missing 'event'"
+          [ -z "$(fm_get "$f" command)" ] && validate_warn "$f: hook has no command"
+          ;;
+        mcp)
+          [ -z "$(fm_get "$f" name)" ] && validate_err "$f: missing 'name'"
+          local tr; tr="$(fm_get "$f" transport)"
+          case "$tr" in stdio|http|"") ;; *) validate_err "$f: invalid transport '$tr'";; esac
+          ;;
+      esac
+    done < <(list_artifacts "$cat")
+  done
+
+  # optional deep skill validation
+  if has_cmd skills-ref && [ -d "$SRC_DIR/skills" ]; then
+    debug "running skills-ref validate on skill dirs"
+    while IFS= read -r f; do
+      skills-ref validate "$(dirname "$f")" >/dev/null 2>&1 || \
+        validate_warn "$(dirname "$f"): skills-ref reported issues"
+    done < <(list_artifacts skills)
+  fi
+
+  info ""
+  if [ "$errors" -gt 0 ]; then
+    err "validation failed: $errors error(s), $warnings warning(s)"; return 1
+  fi
+  info "validation passed ($warnings warning(s))"
+}
+
+# validate_skill <SKILL.md> — Agent Skills spec checks (name/description/dir).
+validate_skill() {
+  local f="$1" dir name desc rc=0
+  dir="$(basename "$(dirname "$f")")"
+  name="$(fm_get "$f" name)"
+  desc="$(fm_get "$f" description)"
+  [ -z "$name" ] && { validate_err "$f: skill missing 'name'"; rc=1; }
+  [ -z "$desc" ] && { validate_err "$f: skill missing 'description'"; rc=1; }
+  if [ -n "$name" ]; then
+    [ "${#name}" -gt 64 ] && { validate_err "$f: name >64 chars"; rc=1; }
+    case "$name" in
+      *[!a-z0-9-]*) validate_err "$f: name has invalid chars (lowercase/digits/hyphen only)"; rc=1;;
+    esac
+    case "$name" in -*|*-) validate_err "$f: name must not start/end with hyphen"; rc=1;; esac
+    case "$name" in *--*) validate_err "$f: name has consecutive hyphens"; rc=1;; esac
+    [ "$name" != "$dir" ] && { validate_err "$f: name '$name' != dir '$dir'"; rc=1; }
+  fi
+  [ "${#desc}" -gt 1024 ] && { validate_err "$f: description >1024 chars"; rc=1; }
+  return "$rc"
+}
+
+cmd_build() {
+  resolve_paths
+  [ -d "$SRC_DIR" ] || die "no canonical source at $SRC_DIR (run 'harness init')"
+  local t gen any=0
+  for t in $(enabled_targets); do
+    gen="$HARNESS_ROOT/generators/$t.sh"
+    if [ ! -f "$gen" ]; then warn "no generator for target '$t' (skipped)"; continue; fi
+    # shellcheck disable=SC1090
+    . "$gen"
+    log "==> $t"
+    "gen_$t"
+    any=1
+  done
+  [ "$any" = 0 ] && warn "no targets generated"
+  info ""
+  info "done: $EMIT_CREATED created, $EMIT_UPDATED updated, $EMIT_UNCHANGED unchanged"
+}
+
+cmd_init() {
+  resolve_paths
+  local cat
+  for cat in $CATEGORIES; do mkdir -p "$PWD/harness/$cat"; done
+  mkdir -p "$PWD/harness/skills/engineering" \
+           "$PWD/harness/skills/productivity" \
+           "$PWD/harness/skills/misc" \
+           "$PWD/harness/hooks/scripts"
+  if [ ! -f "$PWD/harness.toml" ]; then
+    cp "$HARNESS_ROOT/harness.toml" "$PWD/harness.toml"
+    info "created harness.toml"
+  else
+    info "harness.toml already exists (kept)"
+  fi
+  info "scaffolded canonical tree under ./harness/"
+  info "next: 'harness add rule my-rule', then 'harness build'"
+}
+
+cmd_add() {
+  resolve_paths
+  local type="${ARGS[0]:-}" name="${ARGS[1]:-}"
+  [ -z "$type" ] || [ -z "$name" ] && die "usage: harness add <type> <name>"
+  local tmpl="$HARNESS_ROOT/templates/add-$type.md"
+  [ -f "$tmpl" ] || die "no template for type '$type' (have: rule agent command skill hook mcp memory)"
+  local dest
+  case "$type" in
+    skill)   dest="$PWD/harness/skills/misc/$name/SKILL.md" ;;
+    rule)    dest="$PWD/harness/rules/$name.md" ;;
+    agent)   dest="$PWD/harness/agents/$name.md" ;;
+    command) dest="$PWD/harness/commands/$name.md" ;;
+    hook)    dest="$PWD/harness/hooks/$name.md" ;;
+    mcp)     dest="$PWD/harness/mcp/$name.md" ;;
+    memory)  dest="$PWD/harness/memory/$name.md" ;;
+    *)       die "unknown type '$type' (have: rule agent command skill hook mcp memory)" ;;
+  esac
+  [ -e "$dest" ] && die "$dest already exists"
+  mkdir -p "$(dirname "$dest")"
+  sed "s/{{NAME}}/$name/g" "$tmpl" >"$dest"
+  info "created $dest"
+}
+
+# --- Dispatch --------------------------------------------------------------
+case "${CMD:-help}" in
+  init)            cmd_init ;;
+  build|sync)      cmd_build ;;
+  diff)            HARNESS_DRY_RUN=1; cmd_build ;;
+  validate)        cmd_validate ;;
+  list)            cmd_list ;;
+  add)             cmd_add ;;
+  doctor)          cmd_doctor ;;
+  version|--version) echo "harness $VERSION" ;;
+  help|"")         usage ;;
+  *)               die "unknown command: $CMD (try 'harness help')" ;;
+esac

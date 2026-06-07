@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.harness/hooks/format.sh", "timeout": 30}]}
+    ],
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.harness/hooks/session-info.sh", "timeout": 10}]}
+    ]
+  }
+}

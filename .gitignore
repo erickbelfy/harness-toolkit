@@ -1,0 +1,15 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Temp / local
+*.tmp
+*.log
+/tmp/
+
+# Generated harness output should never live in the toolkit repo itself.
+# (In TARGET projects, git-ignore these instead:)
+#   .claude/  .cursor/  AGENTS.md  CLAUDE.md  .mcp.json  .gastown/
+#   .github/hooks/gastown.json  .beads/  .harness/
+#   *.harness.json

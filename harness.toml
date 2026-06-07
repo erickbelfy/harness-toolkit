@@ -1,0 +1,37 @@
+# harness.toml — toolkit manifest.
+# Controls which targets are generated and which canonical categories feed them.
+
+[project]
+name = "harness-toolkit"
+
+# --- Generation targets ----------------------------------------------------
+# out = directory (relative to the target project) where files are written.
+
+[targets.agentsmd]
+enabled = true
+out = "."
+
+[targets.claude]
+enabled = true
+out = "."
+
+[targets.cursor]
+enabled = true
+out = "."
+
+[targets.gastown]
+enabled = true
+out = "."
+beads_mode = "jsonl"   # jsonl (emit .beads/issues.jsonl) | script (emit bd seed)
+
+# --- Category -> target mappings -------------------------------------------
+# An artifact's own `targets:` frontmatter (if present) overrides these defaults.
+
+[mappings]
+rules    = ["agentsmd", "claude", "cursor"]
+agents   = ["claude", "gastown"]
+commands = ["agentsmd", "claude", "cursor"]
+skills   = ["claude"]
+hooks    = ["claude", "gastown"]
+mcp      = ["agentsmd", "claude", "gastown"]
+memory   = ["gastown"]
