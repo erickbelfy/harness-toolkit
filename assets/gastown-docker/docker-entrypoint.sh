@@ -1,10 +1,24 @@
-#!/usr/bin/env bash
-# Gastown sandbox entrypoint: set the container's git identity from the
-# environment, mark /gt safe, then exec the container command.
-set -euo pipefail
+#!/bin/sh
+# Gastown sandbox entrypoint (mirrors gastownhall/gastown).
+# Re-applies git/dolt identity on every start so env var changes take effect even
+# when the home volume persists, then initializes/refreshes the Gas Town workspace
+# at /gt before running the container command.
+set -e
 
-git config --global user.name  "${GIT_USER:-TestUser}"        || true
-git config --global user.email "${GIT_EMAIL:-test@example.com}" || true
-git config --global --add safe.directory /gt                   || true
+if [ -n "$GIT_USER" ] && [ -n "$GIT_EMAIL" ]; then
+    git config --global user.name "$GIT_USER"
+    git config --global user.email "$GIT_EMAIL"
+    git config --global credential.helper store
+    dolt config --global --add user.name "$GIT_USER"
+    dolt config --global --add user.email "$GIT_EMAIL"
+fi
+
+if [ ! -f /gt/mayor/town.json ]; then
+    echo "Initializing Gas Town workspace at /gt..."
+    /app/gastown/gt install /gt --git
+else
+    echo "Refreshing Gas Town workspace at /gt..."
+    /app/gastown/gt install /gt --git --force
+fi
 
 exec "$@"
