@@ -1,0 +1,3 @@
+# Force LF everywhere: shell scripts must be LF to run, and golden fixtures must
+# match what the Linux CI generates. This repo is all text.
+* text=auto eol=lf
