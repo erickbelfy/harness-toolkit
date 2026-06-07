@@ -91,20 +91,22 @@ you a live view of the whole workspace:
 - a command palette to run `gt` commands from the browser.
 
 Start it **inside the container**, binding to all interfaces so the published port
-is reachable from the host:
+is reachable from the host (the dashboard defaults to `127.0.0.1`, which is *not*
+reachable through the published port):
 
 ```sh
-gt dashboard --host 0.0.0.0 --port 8080
+gt dashboard --bind 0.0.0.0 --port 8080      # add --open to launch a browser
 ```
 
-Then open `http://localhost:8080` (or your `DASHBOARD_PORT`) in a browser.
+Then open `http://localhost:8080` (or your `DASHBOARD_PORT`) in a browser. It
+shows convoy status with progress and activity indicators and auto-refreshes
+every 30s (htmx).
 
 Notes:
-- The dashboard must listen on `0.0.0.0` inside the container, not `127.0.0.1`, or
-  the published port won't reach it.
+- Use `--bind 0.0.0.0` — the default `127.0.0.1` won't be reachable from the host.
 - `DASHBOARD_PORT` in `.env` remaps the **host** port; the container side stays
   `8080` (matching the compose `ports:` mapping).
-- Flag names can vary by Gastown version — check `gt dashboard --help`.
+- Verify flags with `gt dashboard --help` (they can change across Gastown versions).
 
 ## Customizing
 
@@ -129,11 +131,18 @@ Ignore the regenerated, harness-owned files; commit your override:
 # keep: .gastown/docker/docker-compose.override.yml
 ```
 
+> On container start the entrypoint configures git/dolt identity and runs
+> `gt install /gt` to initialize (or refresh) the Gas Town workspace in your
+> project automatically — so after `up -d` you can `exec` in and go straight to
+> `gt up` / `gt mayor attach`.
+
 ## Caveats (honest)
 
-- Gastown is **experimental** and has no published image; this `Dockerfile` builds
-  it from source and is **not exercised in our CI** (no Docker there). Verify the
-  build against your Gastown version and adjust `GASTOWN_REF`, the build steps, or
-  `bd` installation as needed.
-- The base image `docker/sandbox-templates:claude-code` and the in-container
-  `gt`/dashboard commands are upstream-defined and may change.
+- **Verified** to build and run against Gastown `@main` on 2026-06-07 with Docker
+  28.5 (`gt v1.2.1`, `bd 1.0.4`, `dolt 2.0.7`, project mounted at `/gt`). It is
+  still **not exercised in CI** (no Docker there), and Gastown is experimental —
+  pin `GASTOWN_REF` and re-verify when you bump it.
+- The `Dockerfile` mirrors upstream's (swapping a `git clone` for their `COPY`);
+  keep it in sync if Gastown changes its own Dockerfile. The base image
+  `docker/sandbox-templates:claude-code` and `gt`/dashboard commands are
+  upstream-defined and may change.
