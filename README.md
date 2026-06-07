@@ -107,6 +107,11 @@ Gastown and Claude: `ui-engineer`, `software-architect`, `project-manager`,
 on the [Agent Skills](https://agentskills.io) and
 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) catalogs.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — branch/commit conventions, the per-PR
+workflow, local checks, golden-fixture refresh, and the invariants to preserve.
+
 ## License
 
 See [LICENSE](LICENSE).
