@@ -28,6 +28,28 @@ gen_gastown() {
   _gastown_hooks "$out"
   write_mcp_json "$out" gastown
   _gastown_memory "$out"
+  _gastown_docker "$out"
+}
+
+# Opt-in Docker sandbox: when [targets.gastown] docker_env = true, drop a
+# self-contained Gastown sandbox under .gastown/docker/. Base files are
+# harness-owned (regenerated); docker-compose.override.yml is created once and
+# never overwritten so project changes survive.
+_gastown_docker() {
+  local out="$1"
+  [ "$(manifest_get "$MANIFEST" targets.gastown docker_env)" = "true" ] || return 0
+  local src="$HARNESS_ROOT/assets/gastown-docker" dst="$out/.gastown/docker"
+  [ -d "$src" ] || { warn "gastown docker assets missing at $src"; return 0; }
+
+  local f
+  for f in docker-compose.yml Dockerfile docker-entrypoint.sh .env.example; do
+    [ -f "$src/$f" ] || continue
+    emit_write "$dst/$f" < "$src/$f"
+  done
+  [ "$HARNESS_DRY_RUN" = 1 ] || chmod +x "$dst/docker-entrypoint.sh" 2>/dev/null || true
+
+  emit_once "$dst/docker-compose.override.yml" < "$src/docker-compose.override.yml"
+  return 0
 }
 
 # Roles: persona body -> .gastown/roles/<name>.md; index -> .gastown/roles.json.

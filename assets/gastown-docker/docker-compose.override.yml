@@ -1,0 +1,15 @@
+# Gastown sandbox — project overrides. SAFE TO EDIT AND COMMIT.
+# This file is created once by harness and never regenerated, so your changes
+# survive `harness build`. It is merged on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+#
+# Uncomment and adapt as needed:
+services:
+  gastown:
+    {}
+    # environment:
+    #   MY_VAR: value
+    # volumes:
+    #   - ../../scripts:/gt/scripts:ro
+    # ports:
+    #   - "9090:9090"

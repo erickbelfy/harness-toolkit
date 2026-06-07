@@ -44,6 +44,13 @@ For Steve Yegge's [Gas Town](https://github.com/steveyegge/gastown) orchestrator
 > Gastown is experimental and its schema is still moving. These are structured,
 > documented interchange artifacts you wire in — review before relying on them.
 
+**Opt-in Docker sandbox.** Set `[targets.gastown] docker_env = true` to also emit a
+self-contained Gastown sandbox under `.gastown/docker/` (compose + Dockerfile +
+`.env.example` + a create-once `docker-compose.override.yml`). The project is
+mounted at `/gt` and agents run isolated in the container. See
+[gastown-docker.md](gastown-docker.md) for the architecture diagram, quickstart,
+and the web dashboard.
+
 ## Cross-cutting policies
 - **Mismatches** never fail the build: unsupported target/type pairs are skipped
   with a `SKIP` log; AGENTS.md never emits YAML; unmapped Gastown events warn.

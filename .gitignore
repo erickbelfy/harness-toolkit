@@ -13,3 +13,8 @@ Thumbs.db
 #   .claude/  .cursor/  AGENTS.md  CLAUDE.md  .mcp.json  .gastown/
 #   .github/hooks/gastown.json  .beads/  .harness/
 #   *.harness.json
+# Gastown Docker sandbox (when docker_env=true): ignore the regenerated base but
+# KEEP your override —
+#   .gastown/docker/docker-compose.yml  .gastown/docker/Dockerfile
+#   .gastown/docker/docker-entrypoint.sh  .gastown/docker/.env.example  .gastown/docker/.env
+#   keep: .gastown/docker/docker-compose.override.yml

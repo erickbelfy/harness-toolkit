@@ -84,5 +84,38 @@ fi
 rm -rf "$TMP2"
 
 echo
+echo "== gastown docker sandbox =="
+# opt-out: default manifest emits no docker files
+TMPD="$(mktemp -d)"
+bin/harness build --target gastown --dir "$TMPD" --quiet
+if [ -e "$TMPD/.gastown/docker/docker-compose.yml" ]; then
+  no "docker_env off -> no sandbox"
+else
+  ok "docker_env off -> no sandbox"
+fi
+rm -rf "$TMPD"
+
+# opt-in: docker_env=true emits the sandbox
+MAN="$(mktemp)"; sed 's/^docker_env = false/docker_env = true/' harness.toml >"$MAN"
+TMPD="$(mktemp -d)"
+bin/harness build --target gastown --dir "$TMPD" --manifest "$MAN" --quiet
+for f in docker-compose.yml Dockerfile docker-entrypoint.sh .env.example docker-compose.override.yml; do
+  if [ -f "$TMPD/.gastown/docker/$f" ]; then ok "sandbox emits $f"; else no "sandbox emits $f"; fi
+done
+# base file matches vendored source
+if cmp -s "$TMPD/.gastown/docker/docker-compose.yml" assets/gastown-docker/docker-compose.yml; then
+  ok "base compose matches asset"; else no "base compose matches asset"; fi
+# create-once: edit override, rebuild -> preserved
+printf '\n# USER EDIT\n' >>"$TMPD/.gastown/docker/docker-compose.override.yml"
+bin/harness build --target gastown --dir "$TMPD" --manifest "$MAN" --quiet
+if grep -q "USER EDIT" "$TMPD/.gastown/docker/docker-compose.override.yml"; then
+  ok "override is create-once (preserved)"; else no "override is create-once (preserved)"; fi
+# idempotency with docker_env on
+out="$(bin/harness build --target gastown --dir "$TMPD" --manifest "$MAN" 2>&1)"
+if printf '%s' "$out" | grep -qE '^(created|updated) '; then
+  no "docker build idempotent" "$out"; else ok "docker build idempotent"; fi
+rm -rf "$TMPD" "$MAN"
+
+echo
 echo "result: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
