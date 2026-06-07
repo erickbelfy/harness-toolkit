@@ -96,6 +96,7 @@ harness.toml         manifest: enabled targets + category→target mappings
 - [docs/canonical-schema.md](docs/canonical-schema.md) — frontmatter reference.
 - [docs/targets.md](docs/targets.md) — what each target emits + format gotchas.
 - [docs/internals.md](docs/internals.md) — codebase walkthrough for contributors.
+- [docs/gastown-docker.md](docs/gastown-docker.md) — opt-in Gastown Docker sandbox (isolated container + web dashboard).
 
 ## Bundled content
 

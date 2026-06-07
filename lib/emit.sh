@@ -50,6 +50,26 @@ emit_write() {
   info "$status $path"
 }
 
+# emit_once <path>  (content on stdin) — write <path> only if it does NOT already
+# exist; never overwrites. For user-owned files the toolkit seeds once and then
+# leaves alone (e.g. an override stub). Honors HARNESS_DRY_RUN.
+emit_once() {
+  local path="$1"
+  if [ -f "$path" ]; then
+    debug "kept $path (exists)"
+    return 0
+  fi
+  if [ "$HARNESS_DRY_RUN" = 1 ]; then
+    info "would create $path"
+    cat >/dev/null
+    return 0
+  fi
+  mkdir -p "$(dirname "$path")" || die "cannot create $(dirname "$path")"
+  cat >"$path" || die "cannot write $path"
+  EMIT_CREATED=$((EMIT_CREATED+1))
+  info "created $path"
+}
+
 # emit_copy_tree <src_dir> <dst_dir> — copy files idempotently, preserving layout.
 emit_copy_tree() {
   local src="$1" dst="$2" rel

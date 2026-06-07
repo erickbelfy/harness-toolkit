@@ -23,6 +23,7 @@ out = "."
 enabled = true
 out = "."
 beads_mode = "jsonl"   # jsonl (emit .beads/issues.jsonl) | script (emit bd seed)
+docker_env = false     # opt-in: emit a Gastown Docker sandbox under .gastown/docker/
 
 # --- Category -> target mappings -------------------------------------------
 # An artifact's own `targets:` frontmatter (if present) overrides these defaults.
