@@ -6,15 +6,20 @@ have a **safe place to work** — the container drops all Linux capabilities, ru
 with `no-new-privileges` and `IS_SANDBOX=1`, and can only touch the project
 mounted at `/gt`, not the rest of your machine.
 
-This is **opt-in**. Enable it per project in `harness.toml`:
+**`harness init` sets this up for you** — it writes a `harness.toml` with
+`docker_env = true` and scaffolds `.gastown/docker/`, so a freshly-inited project
+has the complete structure. `harness build` then refreshes it.
+
+For a project that uses the bundled content **without** `init`, it's opt-in —
+enable it in `harness.toml`:
 
 ```toml
 [targets.gastown]
 docker_env = true
 ```
 
-Then `harness build` writes the sandbox under `.gastown/docker/` (it never touches
-an existing `docker-compose.yaml` in your project root).
+Either way the sandbox lives under `.gastown/docker/` and never touches an existing
+`docker-compose.yaml` in your project root.
 
 ## Architecture
 

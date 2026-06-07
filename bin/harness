@@ -146,6 +146,21 @@ agent_skills_section() {
   done < <(fm_get_list "$f" skills)
 }
 
+# gastown_docker_emit <out_dir> — copy the Gastown docker sandbox into
+# <out_dir>/.gastown/docker. Base files are harness-owned (idempotent); the
+# override is create-once. Shared by `harness init` (scaffold) and the gastown
+# generator (build) so the structure is identical either way.
+gastown_docker_emit() {
+  local out="$1" src="$HARNESS_ROOT/assets/gastown-docker" f
+  [ -d "$src" ] || { warn "gastown docker assets missing at $src"; return 0; }
+  for f in docker-compose.yml Dockerfile docker-entrypoint.sh .env.example; do
+    [ -f "$src/$f" ] && emit_write "$out/.gastown/docker/$f" < "$src/$f"
+  done
+  [ "$HARNESS_DRY_RUN" = 1 ] || chmod +x "$out/.gastown/docker/docker-entrypoint.sh" 2>/dev/null || true
+  emit_once "$out/.gastown/docker/docker-compose.override.yml" < "$src/docker-compose.override.yml"
+  return 0
+}
+
 # humanize <slug> — "code-reviewer" -> "Code Reviewer" (for headings).
 humanize() {
   printf '%s' "$1" | awk '{
@@ -333,12 +348,18 @@ cmd_init() {
            "$PWD/harness/skills/misc" \
            "$PWD/harness/hooks/scripts"
   if [ ! -f "$PWD/harness.toml" ]; then
-    cp "$HARNESS_ROOT/harness.toml" "$PWD/harness.toml"
-    info "created harness.toml"
+    # New project: enable the Gastown docker sandbox by default so the structure
+    # is complete and consistent. (Bundled-content projects that never init keep
+    # the default docker_env = false.)
+    sed 's/^docker_env = false/docker_env = true/' "$HARNESS_ROOT/harness.toml" >"$PWD/harness.toml"
+    info "created harness.toml (docker_env enabled)"
   else
     info "harness.toml already exists (kept)"
   fi
-  info "scaffolded canonical tree under ./harness/"
+  # Lay down the Gastown docker sandbox so a freshly-inited project has the full
+  # structure immediately; `harness build` refreshes it on later runs.
+  gastown_docker_emit "$PWD"
+  info "scaffolded canonical tree under ./harness/ and .gastown/docker/"
   info "next: 'harness add rule my-rule', then 'harness build'"
 }
 

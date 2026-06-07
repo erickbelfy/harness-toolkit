@@ -56,7 +56,7 @@ Generated files land in the project root and under `.claude/`, `.cursor/`, etc.
 
 | Command | Description |
 |---------|-------------|
-| `harness init` | Scaffold a `harness/` tree + `harness.toml` in the current dir |
+| `harness init` | Scaffold a `harness/` tree + `harness.toml` (Gastown docker sandbox enabled) in the current dir |
 | `harness build` (alias `sync`) | Generate all enabled targets |
 | `harness diff` | Dry run — show what `build` would change |
 | `harness validate` | Check frontmatter, required fields, name rules, dangling refs |

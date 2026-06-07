@@ -117,5 +117,19 @@ if printf '%s' "$out" | grep -qE '^(created|updated) '; then
 rm -rf "$TMPD" "$MAN"
 
 echo
+echo "== harness init scaffolds docker sandbox =="
+TI="$(mktemp -d)"
+( cd "$TI" && "$ROOT/bin/harness" init >/dev/null 2>&1 )
+if grep -q '^docker_env = true' "$TI/harness.toml" 2>/dev/null; then
+  ok "init sets docker_env = true"; else no "init sets docker_env = true"; fi
+for f in docker-compose.yml Dockerfile docker-entrypoint.sh .env.example docker-compose.override.yml; do
+  if [ -f "$TI/.gastown/docker/$f" ]; then ok "init scaffolds $f"; else no "init scaffolds $f"; fi
+done
+# init is also expected to scaffold the canonical source dirs
+if [ -d "$TI/harness/rules" ] && [ -d "$TI/harness/skills" ]; then
+  ok "init scaffolds harness/ tree"; else no "init scaffolds harness/ tree"; fi
+rm -rf "$TI"
+
+echo
 echo "result: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
