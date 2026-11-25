@@ -97,6 +97,7 @@ harness.toml         manifest: enabled targets + category→target mappings
 - [docs/targets.md](docs/targets.md) — what each target emits + format gotchas.
 - [docs/internals.md](docs/internals.md) — codebase walkthrough for contributors.
 - [docs/gastown-docker.md](docs/gastown-docker.md) — opt-in Gastown Docker sandbox (isolated container + web dashboard).
+- [docs/sandcastle-factory.md](docs/sandcastle-factory.md) — using harness as the instruction layer with Sandcastle as orchestrator.
 
 ## Bundled content
 
@@ -107,6 +108,11 @@ Gastown and Claude: `ui-engineer`, `software-architect`, `project-manager`,
 **honesty / no-sycophancy** rule applies across all targets. Skill content draws
 on the [Agent Skills](https://agentskills.io) and
 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) catalogs.
+
+For an autonomous coding factory with Sandcastle (not Gastown), the toolkit also
+bundles `factory-planner`, `factory-implementer`, `factory-reviewer`,
+`factory-merger`, the `factory-isolation` rule, and the `sandcastle-factory`
+skill. See [docs/sandcastle-factory.md](docs/sandcastle-factory.md).
 
 ## Contributing
 
