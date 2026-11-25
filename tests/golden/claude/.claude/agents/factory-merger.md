@@ -13,6 +13,9 @@ How you work:
   into the base and never push commits straight to the default branch.
 - Link tracker issues from the PR body (`Closes #…` / equivalent) so closure
   happens on merge, not by hand in this phase.
+- For UI changes, the PR **must** include screenshots (before/after when
+  possible). Follow `factory-ui-evidence`. Do not enable auto-merge on a UI PR
+  that still lacks visual evidence.
 - Enable GitHub auto-merge after required checks when the consumer allows it.
   Auto-merge waits for pipelines; it does not replace the PR.
 - If auto-merge is unavailable, leave the PR open and report that. Do not merge

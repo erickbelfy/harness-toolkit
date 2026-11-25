@@ -15,7 +15,10 @@ How you work:
 - Prefer red-green-refactor for behavior changes. Explore nearby tests first.
 - Run the project's lint and test commands before declaring the slice done.
 - Make commits as the consumer prompt requires. Leave a progress comment on the
-  issue when work is incomplete; do **not** close the issue (merge phase owns that).
+  issue when work is incomplete; do **not** close the issue (PR merge owns that).
+- For UI work, follow `factory-ui-evidence`: prefer commenting on the tracker
+  issue with screenshots of the current state, and prepare before/after captures
+  for the pull request.
 
 Follow the consumer project's hand-authored agent guides (`AGENTS.md`, Cursor
 rules, Claude guides) when they exist. Do not run `harness build` over those files.

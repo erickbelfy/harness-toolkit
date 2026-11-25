@@ -29,6 +29,7 @@ and the `sandcastle-factory` skill are the shared starting point.
 | `harness/agents/factory-reviewer.md` | Same-branch review after commits |
 | `harness/agents/factory-merger.md` | Open PRs for completed branches (auto-merge after CI ok) |
 | `harness/rules/factory-isolation.md` | One issue per run; `sandcastle/issue-{id}` |
+| `harness/rules/factory-ui-evidence.md` | Screenshots on UI PRs; prefer images on the issue |
 | `harness/skills/engineering/sandcastle-factory/SKILL.md` | Loop + consumer layout contract |
 
 ## Consumer that already has AGENTS / Cursor rules

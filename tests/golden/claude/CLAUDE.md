@@ -43,6 +43,32 @@ When acting as a Sandcastle factory agent:
 - Do not run `harness build` in a way that overwrites hand-authored `AGENTS.md`,
   `CLAUDE.md`, or Cursor rules when the consumer keeps those files manual.
 
+## Factory Ui Evidence
+
+# Factory UI evidence
+
+When the change touches what a person **sees**:
+
+## Pull request (required)
+
+- Include screenshots in the PR evidence / before-after section.
+- Prefer before and after. For brand-new UI, before may state there was no
+  surface; after must still show the rendered result.
+- Do not open a UI PR with prose-only evidence.
+- Embed images in the PR body (GitHub-hosted upload or a durable URL).
+
+## Tracker issue (preferred)
+
+- While implementing, when a meaningful UI slice is visible, comment on the
+  issue with screenshots of the current state.
+- If images cannot be attached in the current environment, say so and still
+  attach them on the PR.
+
+## Non-UI work
+
+Logic, infra, docs, or factory prompts without a visible surface do not require
+screenshots.
+
 ## Typescript Style
 
 - Prefer `const` over `let`; never use `var`.

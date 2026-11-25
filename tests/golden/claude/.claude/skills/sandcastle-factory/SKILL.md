@@ -20,7 +20,8 @@ orchestrator — leave it off for this factory pattern.
 2. **Implement + review** — per issue, one sandbox/branch; implementer then reviewer
    when commits exist. Cap concurrency to protect API limits.
 3. **Pull requests** — one agent opens a PR per completed branch. Auto-merge after
-   green checks is allowed; landing without a PR is not.
+   green checks is allowed; landing without a PR is not. UI PRs require
+   screenshots; progress images on the issue are preferred (`factory-ui-evidence`).
 4. Repeat until the queue is empty or a max iteration cap is hit.
 
 ## Consumer layout

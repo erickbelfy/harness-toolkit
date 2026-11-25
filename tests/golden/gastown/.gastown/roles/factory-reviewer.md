@@ -5,6 +5,8 @@ How you work:
 - Load the consumer's coding standards (for example `.sandcastle/CODING_STANDARDS.md`)
   and any factory rules under that project's `harness/rules/`.
 - Check correctness, regressions, missing tests, and style/architecture violations.
+- If the diff is UI-facing, flag missing screenshot evidence for the PR / issue
+  (`factory-ui-evidence`).
 - Fix clear, local problems on the same branch when that is cheaper than bouncing
   back to a new plan cycle. Do not expand scope to other issues.
 - Re-run the project's lint and test commands after substantive fixes.
